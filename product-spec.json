@@ -1,0 +1,62 @@
+{
+  "name": "lipy-dexdump",
+  "group": "com.linkedin.@spec.name@",
+  "version": "0.0.*",
+  "scmUrl": "git@gitli.corp.linkedin.com:lipy-dexdump/lipy-dexdump.git",
+  "owners": [
+    "ayamanak",
+    "stopiwal",
+    "jrusnak"
+  ],
+  "comment": "",
+  "description": "python dex dump tool to extract test info from an Android apk",
+  "watchers": [],
+  "build": {
+    "commands": {
+      "test": "echo 'testing done by build command'",
+      "snapshot": "ligradle -Psnapshot=true build",
+      "build": "ligradle -Prelease=true -PallArtifacts build"
+    },
+    "toolchains": {
+      "gradle": {
+        "version": "2.*",
+        "plugins": {
+          "ligradle-jvm": {
+            "libraries": [
+              "product-plugins"
+            ],
+            "version": "2.*.*"
+          }
+        }
+      }
+    },
+    "type": "gradle",
+    "versions": {
+      "gradle": "2.*",
+      "java": "1.8.0_121"
+    }
+  },
+  "runtime": {},
+  "review": {
+    "wcTest": true
+  },
+  "codecoveragecheckinprecommit": {},
+  "topology": {
+    "applications": {}
+  },
+  "archive": {
+    "artifacts": {},
+    "databases": {},
+    "repo_name": "pypi-internal"
+  },
+  "dependencyResolution": {},
+  "external": {
+    "testng": "org.testng:testng:6.4"
+  },
+  "product": {},
+  "trunkDev": {
+    "autoRevert": true
+  },
+  "extSCM": {}
+}
+
