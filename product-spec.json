@@ -5,11 +5,10 @@
   "scmUrl": "git@gitli.corp.linkedin.com:lipy-dexdump/lipy-dexdump.git",
   "owners": [
     "ayamanak",
-    "stopiwal",
     "jrusnak"
   ],
   "comment": "",
-  "description": "python dex dump tool to extract test info from an Android apk",
+  "description": "Tool for parsing dex/apk files for test info",
   "watchers": [],
   "build": {
     "commands": {
