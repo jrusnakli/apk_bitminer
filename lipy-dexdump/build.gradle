@@ -1,0 +1,16 @@
+apply plugin: 'li-python-sdist'
+
+python {
+    details.pythonVersion = '3.5'
+    versions.supportedVersions = ['2.7', '3.5']
+}
+
+pythonSettings {
+   interpreterVersion = '2.7'
+}
+
+dependencies {
+    // python spec.external.six
+    // python spec.product.'lipy-utils'.'lipy-utils'
+    // test spec.external.mock
+}

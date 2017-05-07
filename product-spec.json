@@ -12,9 +12,10 @@
   "watchers": [],
   "build": {
     "commands": {
-      "test": "echo 'testing done by build command'",
+      "build": "ligradle -Prelease=true -PallArtifacts build",
+      "precommit": "ligradle flake8",
       "snapshot": "ligradle -Psnapshot=true build",
-      "build": "ligradle -Prelease=true -PallArtifacts build"
+      "test": "echo 'testing done by build command'"
     },
     "toolchains": {
       "gradle": {
@@ -25,13 +26,18 @@
               "product-plugins"
             ],
             "version": "2.*.*"
+          },
+          "gradle-python": {
+            "libraries": [
+              "gradle-python"
+            ],
+            "version": "1.*"
           }
         }
       }
     },
     "type": "gradle",
     "versions": {
-      "gradle": "2.*",
       "java": "1.8.0_121"
     }
   },
@@ -50,7 +56,7 @@
   },
   "dependencyResolution": {},
   "external": {
-    "testng": "org.testng:testng:6.4"
+    "six": "pypi:six:1.10.0"
   },
   "product": {},
   "trunkDev": {
