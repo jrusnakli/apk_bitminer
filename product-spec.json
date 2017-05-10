@@ -5,7 +5,8 @@
   "scmUrl": "git@gitli.corp.linkedin.com:lipy-dexdump/lipy-dexdump.git",
   "owners": [
     "ayamanak",
-    "jrusnak"
+    "jrusnak",
+    "stopiwal"
   ],
   "comment": "",
   "description": "Tool for parsing dex/apk files for test info",

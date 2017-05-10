@@ -454,6 +454,7 @@ class DexParser(object):
         :return: all tests annotated under Junit4 conventions
         """
         test_annotation_descriptor = "Lorg/junit/Test;"
+        ignored_annotation_descriptor = "L/org/junit/Ignored;"
         result = []
         for class_def in [c for c in self._ids[DexParser.ClassDefItem] if c.annotations_offset != 0]:
             dot_sep_name = self._descriptor2name(class_def.descriptor)
@@ -463,7 +464,9 @@ class DexParser(object):
                                                         DexParser.AnnotationsDirectoryItem)
             names = directory.get_methods_with_annotation(test_annotation_descriptor,
                                                           self._ids[DexParser.MethodIdItem])
-            result += [dot_sep_name + "#" + name for name in names]
+            ignored_names = directory.get_methods_with_annotation(ignored_annotation_descriptor,
+                                                                  self._ids[DexParser.MemberIdItem])
+            result += [dot_sep_name + "#" + name for name in names if name not in ignored_names]
 
         return set(result)
 
