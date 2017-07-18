@@ -20,7 +20,7 @@
     },
     "toolchains": {
       "gradle": {
-        "version": "2.*",
+        "version": "3.5",
         "plugins": {
           "ligradle-jvm": {
             "libraries": [
@@ -65,4 +65,3 @@
   },
   "extSCM": {}
 }
-
