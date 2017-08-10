@@ -9,7 +9,10 @@ class ByteStream(object):
 
     LITTLE_ENDIAN_INT_FORMAT = "<i"
     LITTLE_ENDIAN_SHORT_FORMAT = "<h"
-    LITTLE_ENDIAN_LONG_LONG_FORMAT = "<Q"
+    LITTLE_ENDIAN_LONG_FORMAT = "<l"
+    LITTLE_ENDIAN_FLOAT_FORMAT = "<f"
+    LITTLE_ENDIAN_DOUBLE_FORMAT = "<d"
+    LITTLE_ENDIAN_LONG_LONG_FORMAT = "<q"
 
     def __init__(self, path):
         self._path = path
@@ -22,10 +25,7 @@ class ByteStream(object):
         """
         :return: single byte read from stream (incrementing position in stream)
         """
-        if sys.version_info >= (3,):
-            return self._file.read(1)[0]
-        else:
-            return ord(self._file.read(1)[0])
+        return self._file.read(1)[0] if sys.version_info >= (3,) else ord(self._file.read(1)[0])
 
     def read_short(self):
         """
@@ -38,6 +38,24 @@ class ByteStream(object):
         :return: int read from stream, with proper endian-ness in mind
         """
         return struct.unpack(ByteStream.LITTLE_ENDIAN_INT_FORMAT, self._file.read(4))[0]
+
+    def read_long_long(self):
+        """
+        :return: long read from stream, with proper endian-ness in mind
+        """
+        return struct.unpack(ByteStream.LITTLE_ENDIAN_LONG_LONG_FORMAT, self._file.read(8))[0]
+
+    def read_float(self):
+        """
+        :return: float read from stream, with proper endian-ness in mind
+        """
+        return struct.unpack(ByteStream.LITTLE_ENDIAN_FLOAT_FORMAT, self._file.read(4))[0]
+
+    def read_double(self):
+        """
+        :return: double read from stream, with proper endian-ness in mind
+        """
+        return struct.unpack(ByteStream.LITTLE_ENDIAN_DOUBLE_FORMAT, self._file.read(8))[0]
 
     def read_ints(self, count):
         """
@@ -84,6 +102,10 @@ class ByteStream(object):
         pos += len(result)
         self._file.seek(pos)
         return result
+
+    def read_fixed_string(self, length):
+        fmt = "<%ds" % length
+        return struct.unpack(fmt, self._file.read(length))[0].decode('latin-1')
 
     def tell(self):
         return self._file.tell()

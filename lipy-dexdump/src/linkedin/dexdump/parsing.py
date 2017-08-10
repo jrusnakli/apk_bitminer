@@ -9,7 +9,6 @@ from . import ByteStream
 
 
 class DexParser(object):
-
     class FormatException(Exception):
         pass
 
@@ -99,11 +98,9 @@ class DexParser(object):
             else:
                 size = struct.calcsize("<" + cls.FORMAT)
                 fmt = "<" + cls.FORMAT
-                if sys.version_info >= (3,):
-                    items = struct.iter_unpack(fmt, bytestream.read(count * size))
-                    return [cls(bytestream, item) for item in items]
-                else:
-                    return [cls(bytestream, struct.unpack(fmt, bytestream.read(size))) for _ in range(count)]
+                return [cls(bytestream, item) for item in struct.iter_unpack(fmt, bytestream.read(count * size))] if \
+                    sys.version_info >= (3,) else \
+                    [cls(bytestream, struct.unpack(fmt, bytestream.read(size))) for _ in range(count)]
 
     class DescribableItem(Item):
         """
@@ -316,21 +313,49 @@ class DexParser(object):
             super(DexParser.EncodedValue, self).__init__(bytestream)
             arg_and_type = bytestream.read_byte()
             value_arg = arg_and_type >> 5
-            value_type = arg_and_type and 0x1F
+            value_type = arg_and_type & 0x1F
 
             if value_type not in [getattr(self, name) for name in dir(self) if name.startswith("VALUE_")]:
                 raise Exception("Value type invalid: %s" % value_type)
-            if value_type <= DexParser.EncodedValue.VALUE_ENUM:
-                self._value = bytestream.read_bytes(value_arg + 1)
+            elif value_type == DexParser.EncodedValue.VALUE_BYTE and value_arg + 1 == 1:
+                self._value = bytestream.read_byte()
+            elif value_type == DexParser.EncodedValue.VALUE_SHORT and value_arg + 1 == 2:
+                self._value = bytestream.read_short()
+            elif value_type == DexParser.EncodedValue.VALUE_INT and value_arg + 1 == 4:
+                self._value = bytestream.read_int()
+            elif value_type == DexParser.EncodedValue.VALUE_LONG and value_arg + 1 == 8:
+                self._value = bytestream.read_long_long()  # encoding value for long is 8 byte long long
+            elif value_type == DexParser.EncodedValue.VALUE_CHAR and value_arg + 1 == 1:
+                self._value = chr(bytestream.read_byte())
+            elif value_type == DexParser.EncodedValue.VALUE_ENUM:
+                self._value = 0
+                for index, byte in enumerate(bytestream.read_bytes(value_arg + 1)):
+                    base = ord(byte) if sys.version_info <= (3,) else byte
+                    self._value += base << index*8  # LITTLE ENDIAN
+            elif value_type == DexParser.EncodedValue.VALUE_FLOAT and value_arg + 1 == 4:
+                self._value = bytestream.read_float()
+            elif value_type == DexParser.EncodedValue.VALUE_DOUBLE and value_arg + 1 == 8:
+                self._value = bytestream.read_double()
+            elif value_type == DexParser.EncodedValue.VALUE_STRING:
+                self._value = bytestream.read_fixed_string(value_arg + 1)
             elif value_type == DexParser.EncodedValue.VALUE_ARRAY:
-                size = self._bytestream.read(1)[0]
-                self._value = bytestream.parse_items(size, None, DexParser.EncodedArray)
+                try:
+                    size = self._bytestream.read(1)[0] if sys.version_info >= (3,) else ord(self._bytestream.read(1)[0])
+                    self._value = bytestream.parse_items(size, None, DexParser.EncodedArray)
+                except:
+                    self._value = bytestream.read_bytes(value_arg + 1)
             elif value_type == DexParser.EncodedValue.VALUE_ANNOTATION:
                 self._value = bytestream.parse_one_item(None, DexParser.EncodedAnnotation)
             elif value_type == DexParser.EncodedValue.VALUE_NULL:
                 self._value = bytes([])
             elif value_type == DexParser.EncodedValue.VALUE_BOOLEAN:
-                self._value = bytestream.read_bytes(value_arg)
+                self._value = bytestream.read_bytes(value_arg) != 0
+            else:
+                self._value = bytestream.read_bytes(value_arg + 1)
+
+        @property
+        def value(self):
+            return self._value
 
     class MemberIdItem(Item):
         FORMAT = "hhi"
@@ -475,5 +500,6 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: dexdump <apk-file-name> [package-name1] [package-name2]...")
         sys.exit(-1)
+        return
     for test in DexParser.parse(sys.argv[1], sys.argv[2:]):
         print(test)
