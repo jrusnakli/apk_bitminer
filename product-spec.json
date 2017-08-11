@@ -2,7 +2,7 @@
   "name": "lipy-dexdump",
   "group": "com.linkedin.@spec.name@",
   "version": "0.0.*",
-  "scmUrl": "git@gitli.corp.linkedin.com:lipy-dexdump/lipy-dexdump.git",
+  "scmUrl": "ssh://git.corp.linkedin.com:29418/multiproducts/lipy-dexdump.git",
   "owners": [
     "ayamanak",
     "jrusnak",
@@ -22,17 +22,17 @@
       "gradle": {
         "version": "3.5",
         "plugins": {
-          "ligradle-jvm": {
-            "libraries": [
-              "product-plugins"
-            ],
-            "version": "2.*.*"
-          },
           "gradle-python": {
             "libraries": [
               "gradle-python"
             ],
             "version": "1.*"
+          },
+          "ligradle-jvm": {
+            "libraries": [
+              "product-plugins"
+            ],
+            "version": "2.*.*"
           }
         }
       }
@@ -65,3 +65,4 @@
   },
   "extSCM": {}
 }
+
