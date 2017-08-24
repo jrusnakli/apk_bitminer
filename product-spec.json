@@ -6,7 +6,8 @@
   "owners": [
     "ayamanak",
     "jrusnak",
-    "stopiwal"
+    "wjohnson",
+    "yszhang"
   ],
   "comment": "",
   "description": "Tool for parsing dex/apk files for test info",

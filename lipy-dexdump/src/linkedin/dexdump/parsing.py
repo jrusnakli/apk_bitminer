@@ -339,11 +339,7 @@ class DexParser(object):
             elif value_type == DexParser.EncodedValue.VALUE_STRING:
                 self._value = bytestream.read_fixed_string(value_arg + 1)
             elif value_type == DexParser.EncodedValue.VALUE_ARRAY:
-                try:
-                    size = self._bytestream.read(1)[0] if sys.version_info >= (3,) else ord(self._bytestream.read(1)[0])
-                    self._value = bytestream.parse_items(size, None, DexParser.EncodedArray)
-                except:
-                    self._value = bytestream.read_bytes(value_arg + 1)
+                self._value = bytestream.parse_one_item(None, DexParser.EncodedArray)
             elif value_type == DexParser.EncodedValue.VALUE_ANNOTATION:
                 self._value = bytestream.parse_one_item(None, DexParser.EncodedAnnotation)
             elif value_type == DexParser.EncodedValue.VALUE_NULL:

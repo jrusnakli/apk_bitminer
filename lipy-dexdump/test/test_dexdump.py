@@ -8,6 +8,7 @@ from linkedin.dexdump.parsing import DexParser, main
 
 RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "resources")
 TEST_APK = os.path.join(RESOURCE_DIR, "test.apk")
+TEST_COMPLEX_APK = os.path.join(RESOURCE_DIR, "test2.apk")
 
 
 class TestDexParsing(object):
@@ -97,3 +98,9 @@ class TestDexParsing(object):
                         ]) < set(tests)
         finally:
             sys.argv = argv
+
+    def test_complex_apk(self):
+        argv = sys.argv
+        # this apk has encoded arrays, etc.  We test that it is parsable by this code base
+        sys.argv = [argv[0], TEST_COMPLEX_APK]
+        main()  # should have no exceptions
