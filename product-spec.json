@@ -21,7 +21,7 @@
     },
     "toolchains": {
       "gradle": {
-        "version": "3.5",
+        "version": "4.1",
         "plugins": {
           "gradle-python": {
             "libraries": [
@@ -33,7 +33,7 @@
             "libraries": [
               "product-plugins"
             ],
-            "version": "2.*.*"
+            "version": "3.*"
           }
         }
       }
@@ -66,4 +66,3 @@
   },
   "extSCM": {}
 }
-
