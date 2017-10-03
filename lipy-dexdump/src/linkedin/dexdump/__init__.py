@@ -17,9 +17,16 @@ class ByteStream(object):
     def __init__(self, path):
         self._path = path
         self._file = open(self._path, 'r+b')
+        self._file.seek(0, 2)
+        self._size = self._file.tell()
+        self._file.seek(0)
         self._look_ahead = None
         self._look_ahead_pos = None
         self._look_ahead_index = None
+
+    @property
+    def size(self):
+        return self._size
 
     def read_byte(self):
         """
