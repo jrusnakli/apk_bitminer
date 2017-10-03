@@ -720,10 +720,3 @@ def main():
         for test in DexParser.parse(sys.argv[1], sys.argv[2:]):
             print(test)
 
-
-def main_axml():
-    if len(sys.argv) < 2:
-        sys.exit(-1)
-    else:
-        xml = str(AXMLParser.parse(sys.argv[1]))
-        sys.stdout.write(xml)
