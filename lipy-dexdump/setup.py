@@ -9,5 +9,6 @@ setuptools.setup(
     packages=setuptools.find_packages('src'),
     include_package_data=True,
     namespace_packages=['linkedin'],
-    scripts=['src/linkedin/dexdump/pydexdump']
+    scripts=['src/linkedin/dexdump/pydexdump',
+             'src/linkedin/dexdump/axmldump']
 )

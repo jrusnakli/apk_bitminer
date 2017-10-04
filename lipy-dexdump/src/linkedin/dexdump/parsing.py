@@ -504,6 +504,57 @@ class AXMLParser(object):
     _string_index_offset = None
     _string_table_offset = None
 
+    # These classes mimic the AndroidManifest.xml structure
+
+    class Instrumentation(object):
+        """
+        Class to capture content of <instrumentation/> tag in AndroidManifest XML
+        """
+
+        def __init__(self, runner, functional_test, handle_profiling, label, target_package):
+            self._runner = runner
+            self._functional_test = functional_test
+            self._handle_profiling = handle_profiling
+            self._label = label
+            self._target_package = target_package
+
+        @property
+        def runner(self):
+            return self._runner
+
+        @property
+        def functional_test(self):
+            return self._functional_test
+
+        @property
+        def handle_profiling(self):
+            return self._handle_profiling
+
+        @property
+        def label(self):
+            return self._label
+
+        @property
+        def target_package(self):
+            return self._target_package
+
+    class UsesSdk(object):
+        """
+        Class to capture content of <uses-sdk/> tag in AndroidManifest XML
+        """
+
+        def __init__(self, min_sdk_version, target_sdk_version):
+            self._min_sdk_version = min_sdk_version
+            self._target_sdk_version = target_sdk_version
+
+        @property
+        def min_sdk_version(self):
+            return self._min_sdk_version
+
+        @property
+        def target_sdk_version(self):
+            return self._target_sdk_version
+
     def __init__(self, bytestream):
         self._header = AXMLParser.Header(bytestream)
         AXMLParser._string_index_offset = 0x24
@@ -522,6 +573,9 @@ class AXMLParser(object):
                                               offset=self._xml_tag_offset,
                                               clazz=AXMLParser.XMLTag)
         self._xml_tag = xml_tag_list[0] if xml_tag_list else None
+        self._instrumentation = None
+        self._uses_sdk = None
+        self._permissions = []
         if self._xml_tag:
             current_tag = self._xml_tag
             for tag in xml_tag_list[1:]:
@@ -535,6 +589,54 @@ class AXMLParser(object):
                     break
                 else:  # end tag
                     current_tag = current_tag.parent_tag
+        self._process_tags()
+
+    def _process_tags(self):
+        # for now, only process instrumentation tag if present
+        if not self._xml_tag or self._xml_tag.name != "manifest":
+            print("No manifest tag at root level found")
+            self._instrumentation = None
+        else:
+            attrs_dict = {attr.name: attr.value for attr in self._xml_tag.attributes}
+            self._package_name = attrs_dict.get('package')
+            for child in self._xml_tag.children:
+                attrs_dict = {attr.name: attr.value for attr in child.attributes}
+                if child.name == "instrumentation":
+                    runner = attrs_dict.get("name")
+                    functional_test = attrs_dict.get("functionalTest") in ["true", True]
+                    handle_profiling = attrs_dict.get("handleProfiling") == ["true", True]
+                    label = attrs_dict.get("label")
+                    target_package = attrs_dict.get("targetPackage")
+                    self._instrumentation = AXMLParser.Instrumentation(runner=runner,
+                                                                       functional_test=functional_test,
+                                                                       handle_profiling=handle_profiling,
+                                                                       label=label,
+                                                                       target_package=target_package)
+                elif child.name == "uses-sdk":
+                    target_sdk_version = attrs_dict.get("targetSdkVersion")
+                    min_sdk_version = attrs_dict.get("minSdkVersion")
+                    target_sdk_version = int(target_sdk_version.split(' ')[1], 16)
+                    min_sdk_version = int(min_sdk_version.split(' ')[1], 16)
+                    self._uses_sdk = AXMLParser.UsesSdk(target_sdk_version=target_sdk_version,
+                                                        min_sdk_version=min_sdk_version)
+                elif child.name == "uses-permission":
+                    self._permissions.append(attrs_dict["name"])
+
+    @property
+    def instrumentation(self):
+        return self._instrumentation
+
+    @property
+    def uses_sdk(self):
+        return self._uses_sdk
+
+    @property
+    def permissions(self):
+        return self._permissions
+
+    @property
+    def package_name(self):
+        return self._package_name
 
     @property
     def xml_head(self):
@@ -598,6 +700,14 @@ class AXMLParser(object):
             if self._value is None and resourceId >= 0:
                 self._value = "resourceID " + hex(resourceId)
 
+        @property
+        def name(self):
+            return str(self._name)
+
+        @property
+        def value(self):
+            return str(self._value)
+
         @classmethod
         def get(cls, bytestream, count):
             return [cls(bytestream) for _ in range(count)]
@@ -651,6 +761,10 @@ class AXMLParser(object):
             self.parent_tag = None
 
         @property
+        def attributes(self):
+            return self._attributes
+
+        @property
         def is_start_tag(self):
             return self._is_start_tag
 
@@ -661,6 +775,10 @@ class AXMLParser(object):
         @property
         def is_doc_end(self):
             return self._is_doc_end
+
+        @property
+        def name(self):
+            return str(self._element_name)
 
         @classmethod
         def get(cls, bytestream, count):
@@ -709,7 +827,11 @@ class AXMLParser(object):
             bytestream = ByteStream(os.path.join(str(tempd), "AndroidManifest.xml"))
             parser = AXMLParser(bytestream)
         shutil.rmtree(tempd)
-        return parser.xml_head
+        return parser
+
+    @property
+    def xml(self):
+        return str(self.xml_head)
 
 
 def main():
@@ -720,3 +842,10 @@ def main():
         for test in DexParser.parse(sys.argv[1], sys.argv[2:]):
             print(test)
 
+
+def main_axml():
+    if len(sys.argv) < 2:
+        sys.exit(-1)
+    else:
+        parser = AXMLParser.parse(sys.argv[1])
+        sys.stdout.write(parser.xml)
