@@ -125,21 +125,38 @@ class ByteStream(object):
 
     def parse_items(self, count, offset, clazz):
         """
+        Retrieve list of same-type items from stream.  Offset into stream is unchanged upon exit
         :param count: number of iteams of type clazz to parse
-        :param offset: osffset within file to start parsing, or None to start at current location
+        :param offset: offset within file to start parsing, or None to start at current location
         :param clazz: `DexParser.Item` subclass to parse into
         :return: collection of requested number of clazz instances parsed from bytestream
         """
         if count == 0:
             return []
+        current_offset = self._file.tell()
         if offset is not None:
             self._file.seek(offset)
-        return clazz.get(self, count)
+        try:
+            return clazz.get(self, count)
+        finally:
+            if offset is not None:
+                self._file.seek(current_offset)
 
     def parse_one_item(self, offset, clazz):
+        """
+        Retrieve a single item of type provided.  Offset into stream is unchanged upon exit
+        :param offset: o offset within file to start parsing, or None to start at current location
+        :param clazz: `DexParser.Item` subclass to parse into
+        :return: single item requested from stream at provided offset (or current offset if None)
+        """
+        current_offset = self._file.tell()
         if offset is not None:
             self._file.seek(offset)
-        return clazz.get(self, 1)[0]
+        try:
+            return clazz.get(self, 1)[0]
+        finally:
+            if offset is not None:
+                self._file.seek(current_offset)
 
     def parse_descriptor(self, string_id):
         """

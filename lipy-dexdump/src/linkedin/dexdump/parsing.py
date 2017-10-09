@@ -690,11 +690,9 @@ class AXMLParser(object):
             ns_offset = bytestream.read_int()
             name_offset = bytestream.read_int()
             val_offset = bytestream.read_int()
-            offset = bytestream.tell()
             self._ns = AXMLParser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
             self._name = AXMLParser._get_string(bytestream, name_offset)
             self._value = AXMLParser._get_string(bytestream, val_offset) if val_offset >= 0 else None
-            bytestream.seek(offset)
             bytestream.read_int()  # unused
             resourceId = bytestream.read_int()
             if self._value is None and resourceId >= 0:
@@ -746,10 +744,8 @@ class AXMLParser(object):
             bytestream.read_int()
             ns_offset = bytestream.read_int()
             element_name_offset = bytestream.read_int()
-            offset = bytestream.tell()
             self._ns_name = AXMLParser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
             self._element_name = AXMLParser._get_string(bytestream, element_name_offset)
-            bytestream.seek(offset)
             if self._is_start_tag:  # elements have 3 more words:
                 bytestream.read_int()  # unused
                 self._attr_count = bytestream.read_int()
@@ -807,9 +803,9 @@ class AXMLParser(object):
             return None
         offset = bytestream.tell()
         bytestream.seek(AXMLParser._string_index_offset + str_index*WORD_LENGTH)
-        table_index = bytestream.read_int()
-        bytestream.seek(AXMLParser._string_table_offset + table_index)
         try:
+            table_index = bytestream.read_int()
+            bytestream.seek(AXMLParser._string_table_offset + table_index)
             return AXMLParser.StringItem(bytestream)
         finally:
             bytestream.seek(offset)
