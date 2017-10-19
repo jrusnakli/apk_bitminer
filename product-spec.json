@@ -3,12 +3,6 @@
   "group": "com.linkedin.@spec.name@",
   "version": "0.0.*",
   "scmUrl": "ssh://git.corp.linkedin.com:29418/multiproducts/lipy-dexdump.git",
-  "owners": [
-    "ayamanak",
-    "jrusnak",
-    "wjohnson",
-    "yszhang"
-  ],
   "comment": "",
   "description": "Tool for parsing dex/apk files for test info",
   "watchers": [],
