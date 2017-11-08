@@ -8,6 +8,7 @@ RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "resources")
 # Basic APK has no permissions (to check empty permissions set), Complex APK has permissions
 BASIC_APK = os.path.join(RESOURCE_DIR, "MDCTest-debug.apk")
 COMPLEX_APK = os.path.join(RESOURCE_DIR, "test3.apk")
+USER_ACCEPTANCE_APK = os.path.join(RESOURCE_DIR, "test4.apk")
 
 EXPECTED_XML = str("""<manifest  package='com.linkedin.mdctest.test' platformBuildVersionCode='25' platformBuildVersionName='7.1.1'>
   <uses-sdk  minSdkVersion='resourceID 0xf' targetSdkVersion='resourceID 0x19'>
@@ -44,6 +45,15 @@ class TestAXMLParsing(object):
         parser = AXMLParser.parse(COMPLEX_APK)
         assert set(parser.permissions) == set(["android.permission.WRITE_EXTERNAL_STORAGE",
                                                "android.permission.READ_EXTERNAL_STORAGE"])
+
+    def test_apk_later_version(self):
+        parser = AXMLParser.parse(USER_ACCEPTANCE_APK)
+        assert set(['android.permission.ACCESS_FINE_LOCATION',
+                    'android.permission.MANAGE_ACCOUNTS',
+                    'android.permission.WRITE_SYNC_SETTINGS',
+                    'android.permission.INTERNET',
+                    'android.permission.READ_SYNC_SETTINGS',
+                    'android.permission.AUTHENTICATE_ACCOUNTS', ]) < set(parser.permissions)
 
     def test_main(self, monkeypatch):
         argv = sys.argv

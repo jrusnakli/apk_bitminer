@@ -501,8 +501,8 @@ class AXMLParser(object):
     XML_START_TAG = 0x00100102
     XML_START_END_TAG = 0x00100103
 
-    _string_index_offset = None
-    _string_table_offset = None
+    START_NS = 0x00100100
+    END_NS = 0x00100101
 
     # These classes mimic the AndroidManifest.xml structure
 
@@ -557,21 +557,9 @@ class AXMLParser(object):
 
     def __init__(self, bytestream):
         self._header = AXMLParser.Header(bytestream)
-        AXMLParser._string_index_offset = 0x24
-        AXMLParser._string_table_offset = self._string_index_offset + self._header.no_entries*WORD_LENGTH
-        self._xml_tag_offset = None
-        # scan for true start of first xml tag
-        bytestream.seek(self._header.xml_tag_table_offset)
-        for index in range(self._header.xml_tag_table_offset, bytestream.size-4, 4):
-            tag = bytestream.read_int()
-            if tag == AXMLParser.XML_START_TAG:
-                self._xml_tag_offset = index
-                break
-        if self._xml_tag_offset is None:
-            raise Exception("Invalid android xml file: unable to find XML tags starting offset")
-        xml_tag_list = bytestream.parse_items(count=bytestream.size - 4 - self._header.xml_tag_table_offset,
-                                              offset=self._xml_tag_offset,
-                                              clazz=AXMLParser.XMLTag)
+        tag_list = self.parse_items(bytestream=bytestream)
+        #  ns_list = [item for item in tag_list if isinstance(item, AXMLParser.NSRecord)]
+        xml_tag_list = [item for item in tag_list if isinstance(item, AXMLParser.XMLTag)]
         self._xml_tag = xml_tag_list[0] if xml_tag_list else None
         self._instrumentation = None
         self._uses_sdk = None
@@ -579,9 +567,7 @@ class AXMLParser(object):
         if self._xml_tag:
             current_tag = self._xml_tag
             for tag in xml_tag_list[1:]:
-                if tag.is_doc_end:
-                    break
-                elif tag.is_start_tag:
+                if tag.is_start_tag:
                     current_tag.children.append(tag)
                     tag.parent_tag = current_tag
                     current_tag = tag
@@ -590,6 +576,23 @@ class AXMLParser(object):
                 else:  # end tag
                     current_tag = current_tag.parent_tag
         self._process_tags()
+
+    def parse_items(self, bytestream):
+        items = []
+        while True:
+            first_word = bytestream.read_int()
+            bytestream.read_int()  # unused chunk size
+            bytestream.read_int()  # unused line number
+            bytestream.read_int()  # unused, unknown
+            if first_word in [AXMLParser.XML_START_TAG, AXMLParser.XML_START_END_TAG]:
+                items.append(AXMLParser.XMLTag(self, bytestream, first_word == AXMLParser.XML_START_TAG))
+            elif first_word == AXMLParser.XML_END_DOC_TAG:
+                break
+            elif first_word in [AXMLParser.START_NS, AXMLParser.END_NS]:
+                items.append(AXMLParser.NSRecord(bytestream, first_word == AXMLParser.START_NS))
+            else:
+                raise Exception("Invalid XML element start code %d in android xml" % first_word)
+        return items
 
     def _process_tags(self):
         # for now, only process instrumentation tag if present
@@ -650,27 +653,53 @@ class AXMLParser(object):
         #  4th word: number of string in string table
         #  other words:  unknown and unused
         EXPECTED_TAG = 0x00080003
+        EXPECTED_STRING_TAG = 0x001c0001
+        EXPECTED_RESOURCE_TAG = 0x00080180
 
         def __init__(self, bytestream):
             self._tag = bytestream.read_int()
             if self._tag != AXMLParser.Header.EXPECTED_TAG:
                 raise Exception("Poorly formatted android XML binary file")
+            self._file_size = bytestream.read_int()
+            if bytestream.read_int() != AXMLParser.Header.EXPECTED_STRING_TAG:
+                raise Exception("Poorly formatted android XML binary file")
+            string_chunk_size = bytestream.read_int()  # unused
+            self._string_count = bytestream.read_int()
+            self._style_count = bytestream.read_int()
             bytestream.read_int()  # unused
-            bytestream.read_int()  # unused
-            self.xml_tag_table_offset = bytestream.read_int()
-            self.no_entries = bytestream.read_int()
-            bytestream.read_int()  # unused
-            bytestream.read_int()  # unused
-            bytestream.read_int()  # unused
-            bytestream.read_int()  # unused
+            self._string_raw_data_offset = bytestream.read_int()
+            self._style_raw_data_offset = bytestream.read_int()
+            self._string_offset = [bytestream.read_int() for _ in range(self._string_count)]
+            # skip style offset table
+            bytestream.seek(bytestream.tell() + self._style_count * WORD_LENGTH)
+            # skip string raw data:
+            length = (string_chunk_size if self._style_raw_data_offset == 0 else self._style_raw_data_offset) - self._string_raw_data_offset
+            self._string_raw_data_offset = bytestream.tell()
+            bytestream.seek(bytestream.tell() + length)
+            # skip style raw data
+            if self._style_raw_data_offset != 0:
+                bytestream.seek(bytestream.tell() + (string_chunk_size - self._style_raw_data_offset)*WORD_LENGTH)
+            tag = bytestream.read_int()
+            if tag != AXMLParser.Header.EXPECTED_RESOURCE_TAG:
+                raise Exception("Poorly formatted android XML binary file")
+            self._resource_chunk_size = bytestream.read_int()
+            if self._resource_chunk_size % 4 != 0:
+                raise Exception("Poorly formatted android XML binary file")
+            self.no_entries = self._resource_chunk_size/4
+            bytestream.seek(bytestream.tell() + self._resource_chunk_size - 8)
 
     class StringItem(object):
 
         def __init__(self, bytestream):
             self._length = bytestream.read_short()
-            short_values = [bytestream.read_short() for _ in range(self._length)]
-            byte_values = [val & 0xFF for val in short_values]
-            self._value = "".join(map(chr, byte_values))
+            if int(self._length/256) == self._length % 256:
+                self._length = self._length % 256  # newer Axml seems to dup the length (??)
+                bytes = bytestream.read_bytes(self._length)
+                text = bytes.decode('utf-8')
+            else:
+                bytes = bytestream.read_bytes(self._length*2)
+                text = bytes.decode('utf-16')
+            self._value = text
 
         @classmethod
         def get(cls, bytestream, count):
@@ -686,15 +715,15 @@ class AXMLParser(object):
         # 3rd word: unused (flags of some sort?)
         # 4th word: resource id, if used
 
-        def __init__(self, bytestream):
+        def __init__(self, parser, bytestream):
             ns_offset = bytestream.read_int()
             name_offset = bytestream.read_int()
             val_offset = bytestream.read_int()
-            self._ns = AXMLParser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
-            self._name = AXMLParser._get_string(bytestream, name_offset)
-            self._value = AXMLParser._get_string(bytestream, val_offset) if val_offset >= 0 else None
             bytestream.read_int()  # unused
             resourceId = bytestream.read_int()
+            self._ns = parser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
+            self._name = parser._get_string(bytestream, name_offset)
+            self._value = parser._get_string(bytestream, val_offset) if val_offset >= 0 else None
             if self._value is None and resourceId >= 0:
                 self._value = "resourceID " + hex(resourceId)
 
@@ -707,8 +736,8 @@ class AXMLParser(object):
             return str(self._value)
 
         @classmethod
-        def get(cls, bytestream, count):
-            return [cls(bytestream) for _ in range(count)]
+        def get(cls, parser, bytestream, count):
+            return [cls(parser, bytestream) for _ in range(count)]
 
         def __str__(self):
             return "%s='%s'" % (self._name, self._value) if self._value is not None else str(self._name)
@@ -727,32 +756,19 @@ class AXMLParser(object):
         #   7th word: number of attributes in element
         #   8th word: unused
 
-        def __init__(self, bytestream):
-            first_word = bytestream.read_int()
-            self._is_doc_end = False
-            if first_word == AXMLParser.XML_START_TAG:
-                self._is_start_tag = True
-            elif first_word == AXMLParser.XML_START_END_TAG:
-                self._is_start_tag = False
-            elif first_word == AXMLParser.XML_END_DOC_TAG:
-                self._is_doc_end = True
-                return
-            else:
-                raise Exception("Invalid XML element start code in android xml")
-            self._flag = bytestream.read_int()
-            self._line_no = bytestream.read_int()
-            bytestream.read_int()
+        def __init__(self, parser, bytestream, is_start_tag):
+            self._is_start_tag = is_start_tag
             ns_offset = bytestream.read_int()
             element_name_offset = bytestream.read_int()
-            self._ns_name = AXMLParser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
-            self._element_name = AXMLParser._get_string(bytestream, element_name_offset)
             if self._is_start_tag:  # elements have 3 more words:
                 bytestream.read_int()  # unused
                 self._attr_count = bytestream.read_int()
                 bytestream.read_int()  # unused
-                self._attributes = AXMLParser.XMLAttr.get(bytestream, self._attr_count)
+                self._attributes = AXMLParser.XMLAttr.get(parser, bytestream, self._attr_count)
             else:
                 self._attributes = []
+            self._ns_name = parser._get_string(bytestream, ns_offset) if ns_offset >= 0 else ""
+            self._element_name = parser._get_string(bytestream, element_name_offset)
             self.children = []
             self.parent_tag = None
 
@@ -769,10 +785,6 @@ class AXMLParser(object):
             return not self._is_start_tag
 
         @property
-        def is_doc_end(self):
-            return self._is_doc_end
-
-        @property
         def name(self):
             return str(self._element_name)
 
@@ -781,10 +793,7 @@ class AXMLParser(object):
             tags = []
             while True:
                 tag = cls(bytestream)
-                if tag.is_doc_end:
-                    break
-                else:
-                    tags.append(tag)
+                tags.append(tag)
             return tags
 
         def __str__(self):
@@ -797,15 +806,21 @@ class AXMLParser(object):
             }
             return text
 
-    @classmethod
-    def _get_string(cls, bytestream, str_index):
+    class NSRecord(object):
+
+        def __init__(self, bytestream, is_start):
+            self._is_start = is_start
+            self._prefix = bytestream.read_int()
+            self._uri = bytestream.read_int()
+
+    def _get_string(self, bytestream, str_index):
         if str_index < 0:
             return None
+        if str_index >= len(self._header._string_offset):
+            return ""
         offset = bytestream.tell()
-        bytestream.seek(AXMLParser._string_index_offset + str_index*WORD_LENGTH)
         try:
-            table_index = bytestream.read_int()
-            bytestream.seek(AXMLParser._string_table_offset + table_index)
+            bytestream.seek(self._header._string_raw_data_offset + self._header._string_offset[str_index])
             return AXMLParser.StringItem(bytestream)
         finally:
             bytestream.seek(offset)
