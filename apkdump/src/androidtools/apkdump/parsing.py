@@ -4,7 +4,7 @@ import sys
 import tempfile
 import zipfile
 from abc import ABCMeta, abstractmethod
-from ..dexdump import junit3
+from ..apkdump import junit3
 from . import ByteStream
 
 
@@ -12,6 +12,13 @@ WORD_LENGTH = 4
 
 
 class DexParser(object):
+    """
+    Class for parsing test information from a dex file within an Android apk
+
+    Subclasses to this class represent various item data types that can be pulled from a dex file.  They
+    contain the logic for how to extract the item's data from a linear bytestream
+    """
+
     class FormatException(Exception):
         pass
 
@@ -73,7 +80,7 @@ class DexParser(object):
     ######################################################
     # Various data classes for holding dex-item data
     # These basically pull byte data out of the dex file to be interpreted into various classes of data
-    # See Drew Hannay's excellent work in Kotlin on this same feature set on linkedin github:
+    # See Drew Hannay's excellent work in Kotlin on this same feature set on androidtools github:
     #   https://github.com/linkedin/dex-test-parser
     # These classes give a break down of how Android dex files are formatted.  For the curious, feel
     # free to checkout out the android repo and peruse the code to understand the structure :-)
@@ -496,6 +503,12 @@ class DexParser(object):
 
 
 class AXMLParser(object):
+    """
+    Class for extracting a human-readable android manifest xml file from an Android apk
+
+    Subclasses represent data items that appear within a binary-formatted AndroidManifest.xml file within an apk,
+    and contain the logic to decode a linear bytestrea to product an instance of that items' type.
+    """
 
     XML_END_DOC_TAG = 0x00100101
     XML_START_TAG = 0x00100102
@@ -846,8 +859,12 @@ class AXMLParser(object):
 
 
 def main():
+    """
+    :return: List of tests found within a given test apk.  Can be filtered based on a list of Java package names
+    provided
+    """
     if len(sys.argv) < 2:
-        print("Usage: dexdump <apk-file-name> [package-name1] [package-name2]...")
+        print("Usage: apkdump <apk-file-name> [package-name1] [package-name2]...")
         sys.exit(-1)
     else:
         for test in DexParser.parse(sys.argv[1], sys.argv[2:]):
@@ -855,6 +872,9 @@ def main():
 
 
 def main_axml():
+    """
+    :return: Human-readable XML pulled from the specified Android apk
+    """
     if len(sys.argv) < 2:
         sys.exit(-1)
     else:

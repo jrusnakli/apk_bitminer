@@ -2,11 +2,11 @@
 import os
 import sys
 
-from linkedin.dexdump.parsing import AXMLParser, main_axml
+from androidtools.apkdump.parsing import AXMLParser, main_axml
 
 RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "resources")
 # Basic APK has no permissions (to check empty permissions set), Complex APK has permissions
-BASIC_APK = os.path.join(RESOURCE_DIR, "MDCTest-debug.apk")
+BASIC_APK = os.path.join(RESOURCE_DIR, "test5.apk")
 COMPLEX_APK = os.path.join(RESOURCE_DIR, "test3.apk")
 USER_ACCEPTANCE_APK = os.path.join(RESOURCE_DIR, "test4.apk")
 

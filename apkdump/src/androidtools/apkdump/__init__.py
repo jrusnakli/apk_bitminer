@@ -72,6 +72,9 @@ class ByteStream(object):
         return struct.unpack("<%di" % count, self._file.read(count * 4))
 
     def read_leb128(self):
+        """
+        :return: a Little Endian Base 128 variable-length element from this stream
+        """
         result = 0
         shift = 0
         while True:
@@ -111,16 +114,31 @@ class ByteStream(object):
         return result
 
     def read_fixed_string(self, length):
+        """
+        :param length: size of fixed-length string to read
+        :return: string of given lenght, pulled from this stream
+        """
         fmt = "<%ds" % length
         return struct.unpack(fmt, self._file.read(length))[0].decode('latin-1')
 
     def tell(self):
+        """
+        :return: current location within this stream
+        """
         return self._file.tell()
 
     def seek(self, pos):
+        """
+        :param pos: position to seek to within the stream
+        :return: position after seek
+        """
         return self._file.seek(pos)
 
     def read(self, count):
+        """
+        :param count: number of bytes to read from stream
+        :return: count number of bytes, pulled from this stream
+        """
         return self._file.read(count)
 
     def parse_items(self, count, offset, clazz):
