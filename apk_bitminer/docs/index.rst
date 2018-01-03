@@ -1,12 +1,51 @@
-Welcome to lipy-dexdump's documentation!
-========================================
+Welcome to apk_bitminer's User Guide!
+================================
 
-Tool for parsing dex/apk files for test info
-
-Contents:
+apk_bitminer is a python utility and library used to extract information from and Android apk file.  Specifically, the
+tool can parse the dex files within an apk to determine the list of tests present within the apk (for test
+apks).  The tool can also extract the binary-formatted AndroidManifest.xml file back into a human-readable form.
 
 .. toctree::
    :maxdepth: 2
+
+Extracting Test Information
+===========================
+
+To list the tests contained in an apk file from the command line:
+
+.. code-block:: bash
+
+    % pydexdump <apk-file>
+
+Via the api:
+
+.. code-block:: python
+
+    from apk_bitminer.parsing import DexParser
+
+    # print all tests in an apk, but only those in package 'filter.on.package'
+    for test in DexParser.parse("/path/to/some.apk", ["filer.on.package'])
+        print(test)
+
+Extracting AndroidManifest.xml
+==============================
+
+To print the AndroidMainfiest.xml in an apk file in human-readable form from the command line:
+
+.. code-block:: bash
+
+    % axmldump <apk-file>
+
+Via the api:
+
+.. code-block:: python
+
+    from apk_bitminer.parsing import AXMLParser
+
+    #print the XML of the AXML manifest file in an apk:
+    parser = AXMLParser.parse("/path/to/some.aok")
+    print(parser.xml)
+
 
 Indices and tables
 ==================
