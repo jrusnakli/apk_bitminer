@@ -1,9 +1,0 @@
-apply plugin: 'li-python-sdist'
-
-python {
-    details.pythonVersion = '3.5'
-    versions.supportedVersions = ['2.7', '3.5']
-}
-
-dependencies {
-}
