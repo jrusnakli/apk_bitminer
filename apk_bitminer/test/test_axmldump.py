@@ -2,7 +2,7 @@
 import os
 import sys
 
-from androidtools.apkdump.parsing import AXMLParser, main_axml
+from apk_bitminer.parsing import AXMLParser, main_axml
 
 RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "resources")
 # Basic APK has no permissions (to check empty permissions set), Complex APK has permissions

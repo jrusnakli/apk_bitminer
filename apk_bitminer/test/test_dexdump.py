@@ -3,8 +3,8 @@ import os
 import sys
 
 import pytest
-from androidtools.apkdump import ByteStream
-from androidtools.apkdump.parsing import DexParser, main
+from apk_bitminer import ByteStream
+from apk_bitminer.parsing import DexParser, main
 
 RESOURCE_DIR = os.path.join(os.path.dirname(__file__), "resources")
 TEST_APK = os.path.join(RESOURCE_DIR, "test.apk")
