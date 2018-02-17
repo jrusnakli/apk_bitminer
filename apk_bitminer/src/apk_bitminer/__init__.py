@@ -165,7 +165,7 @@ class ByteStream(object):
 
     class BaseCollectionReader(object):
 
-        def __init__(self, bytestream, clazz, offset=None, obj_size=None, count=None):
+        def __init__(self, bytestream, clazz, offset=None, count=None):
             """
             :param bytestream: stream to read from
             :param offset: where in stream to read from
@@ -174,37 +174,62 @@ class ByteStream(object):
             """
             self._bytestream = bytestream
             self._count = count
-            if clazz.FORMAT is None or clazz.FORMAT[0] == '*' and obj_size is None:
-                    raise Exception("obj_size must be explicitly provided for variable byte length types")
-            elif clazz.FORMAT and clazz.FORMAT[0] != '*':
-                fmt = "<" + clazz.FORMAT
-                size = struct.calcsize(fmt)
-                if obj_size is not None and size != obj_size:
-                    raise Exception("Mismatch in obj_size and computed size for type of object")
-                obj_size = size
-            self._byte_size = obj_size
-            self._offset = offset if offset is not None else bytestream.tell()
+            if clazz.FORMAT is None or clazz.FORMAT[0] == '*':
+                self._byte_size = None
+                self._fmt = None
+            else:
+                self._fmt = "<" + clazz.FORMAT
+                self._byte_size = struct.calcsize(self._fmt)
+            self._offset = offset
             self._index = 0
             self._class = clazz
+            self._curr_offset = offset if offset is not None else bytestream.tell()
 
     class IterReader(BaseCollectionReader):
 
         def __iter__(self):
+            return self
+
+        def next(self):
             if self._count is not None and self._index >= self._count:
-                raise ValueError("Index out of range")
-            elem = self.parse_one_item(self._index)
-            self._index += 1
-            return elem
+                raise StopIteration()
+            start_offset = self._bytestream.tell()
+            try:
+                self._bytestream.seek(self._curr_offset)
+                if self._byte_size is not None:
+                    elem = self._class(self._bytestream,  struct.unpack(self._fmt,
+                                                                        self._bytestream._file.read(self._byte_size )))
+                else:
+                    elem = self._class(self._bytestream)
+                self._curr_offset = self._bytestream.tell()
+                self._index += 1
+                return elem
+            finally:
+                if self._offset is not None:
+                    self._bytestream.seek(start_offset)
 
     class CollectionReader(BaseCollectionReader):
+
+        def __init__(self, bytestream, clazz, offset=None, count=None):
+            super(ByteStream.CollectionReader, self).__init__(bytestream, clazz, offset, count)
+            self._offset = offset if offset is not None else bytestream.tell()
+            self._parsed = {}
 
         def __getitem__(self, index):
             if self._count is not None and index >= self._count:
                 raise IndexError("Index out of range")
+            if index in self._parsed:
+                return self._parsed[index]
             start_offset = self._bytestream.tell()
             self._bytestream.seek(self._offset + index * self._byte_size)
             try:
-                return self._class.get(self._bytestream, 1)[0]
+                if self._byte_size is not None:
+                    elem = self._class(self._bytestream,  struct.unpack(self._fmt,
+                                                                        self._bytestream._file.read(self._byte_size )))
+                else:
+                    elem = self._class(self._bytestream)
+                self._parsed[index] = elem
+                return elem
             finally:
                 self._bytestream.seek(start_offset)
 

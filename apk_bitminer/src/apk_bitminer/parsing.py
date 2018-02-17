@@ -163,11 +163,14 @@ class DexParser(object):
 
         def __init__(self, bytestream):
             super(DexParser.AnnotationSetItem, self).__init__(bytestream)
-            with ByteStream.ContiguousReader(bytestream):
+            with ByteStream.ContiguousReader(bytestream) as reader:
                 count = reader.read_int()
-                self.entries = ByteStream.IterReader(bytestream, DexParser.AnnotationSetItem, count=count)
+                self.entries = ByteStream.IterReader(bytestream, DexParser.AnnotationOffsetItem, count=count)
 
         def __iter__(self):
+            return self
+
+        def next(self):
             return next(self.entries)
 
     class AnnotationElement(Item):
@@ -196,6 +199,7 @@ class DexParser(object):
             bytestream.seek(bytestream.tell() + annotated_method_size * size)
             self.parameter_annotations = ByteStream.CollectionReader(bytestream, count=annotated_parameter_size,
                                                                      clazz=DexParser.Annotation)
+            self._parsed_annotations = {}
 
         def get_methods_with_annotation(self, target_descriptor, method_ids):
             """
@@ -203,17 +207,20 @@ class DexParser(object):
             :param method_ids: list of MethodIdItems for querying name
             :return: all vritual methods int his directory of that ar annotated with given descriptor
             """
-            for annotation in self.method_annotations:
-                if annotation.annotations_offset == 0:
-                    continue
-                entries = self._bytestream.parse_one_item(annotation.annotations_offset, DexParser.AnnotationSetItem)
-                for entry in entries:
-                    item = self._bytestream.parse_one_item(entry.annotation_offset, DexParser.AnnotationItem)
-                    if target_descriptor == item.encoded_annotation.descriptor:
+            if not self._parsed_annotations:
+                for annotation in self.method_annotations:
+                    if annotation.annotations_offset == 0:
+                        continue
+                    with ByteStream.ContiguousReader(self._bytestream, offset=annotation.annotations_offset):
+                        entries = DexParser.AnnotationSetItem(self._bytestream)
+                    for entry in entries:
+                        with ByteStream.ContiguousReader(self._bytestream, offset=entry.annotation_offset):
+                            item = DexParser.AnnotationItem(self._bytestream)
                         method_id = method_ids[annotation.index]
                         method_descriptor = self._bytestream.parse_method_name(method_id)
-                        yield method_descriptor
-                        break
+                        self._parsed_annotations.setdefault(item.encoded_annotation.descriptor,[]).\
+                            append(method_descriptor)
+            return self._parsed_annotations.get(target_descriptor) or []
 
     class ClassDefItem(DescribableItem):
         FORMAT = "iiiiiiii"
@@ -268,17 +275,17 @@ class DexParser(object):
 
             fmt = "<" + DexParser.Annotation.FORMAT
             size = struct.calcsize(fmt)
-            self.static_fields = ByteStream.CollectionReader(bytestream, count=static_fields_size,
-                                                             clazz=DexParser.EncodedField)
+            self.static_fields = ByteStream.IterReader(bytestream, count=static_fields_size,
+                                                       clazz=DexParser.EncodedField)
             bytestream.seek(bytestream.tell() + size * static_fields_size)
-            self.instance_fields = ByteStream.CollectionReader(bytestream, count=instance_fields_size,
-                                                               clazz=DexParser.EncodedField)
+            self.instance_fields = ByteStream.IterReader(bytestream, count=instance_fields_size,
+                                                        clazz=DexParser.EncodedField)
             bytestream.seek(bytestream.tell() + size * instance_fields_size)
-            self.direct_methods = ByteStream.CollectionReader(bytestream, count=direct_methods_size,
-                                                              clazz=DexParser.EncodedField)
+            self.direct_methods = ByteStream.IterReader(bytestream, count=direct_methods_size,
+                                                        clazz=DexParser.EncodedMethod)
             bytestream.seek(bytestream.tell() + size * virtual_methods_size)
-            self.virtual_methods = ByteStream.CollectionReader(bytestream, count=virtual_methods_size,
-                                                              clazz=DexParser.EncodedField)
+            self.virtual_methods = ByteStream.IterReader(bytestream, count=virtual_methods_size,
+                                                         clazz=DexParser.EncodedMethod)
 
     class EncodedAnnotation(DescribableItem):
         FORMAT = "*i*"
@@ -287,8 +294,9 @@ class DexParser(object):
             super(DexParser.EncodedAnnotation, self).__init__(bytestream)
             with ByteStream.ContiguousReader(bytestream) as reader:
                 self.type_index = reader.read_leb128()
-                size = reader.read_leb128()
-                self.elements = ByteStream.CollectionReader(bytestream, obj_size=size, clazz=DexParser.AnnotationElement)
+                count = reader.read_leb128()
+                self.elements = ByteStream.CollectionReader(bytestream, count=count,
+                                                            clazz=DexParser.AnnotationOffsetItem)
 
         def _type_index(self):
             return self.type_index
@@ -518,8 +526,8 @@ class DexParser(object):
                 dot_sep_name = self._descriptor2name(class_def.descriptor)
                 if self._package_filters and all([f not in dot_sep_name for f in self._package_filters]):
                     continue
-                directory = self._bytestream.parse_one_item(class_def.annotations_offset,
-                                                            DexParser.AnnotationsDirectoryItem)
+                with ByteStream.ContiguousReader(self._bytestream, offset=class_def.annotations_offset):
+                    directory = DexParser.AnnotationsDirectoryItem(self._bytestream)
                 ignored_names = [n for n in directory.get_methods_with_annotation(ignored_annotation_descriptor,
                                                                                   self._ids[DexParser.MethodIdItem])]
 

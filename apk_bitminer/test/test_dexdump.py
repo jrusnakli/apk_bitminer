@@ -34,7 +34,7 @@ class TestDexParsing(object):
 
     def test_apk_parsing_filtered_empty_result(self):
         tests = DexParser.parse(TEST_APK, ["com.linkedin.mdctestNOT"])
-        assert not tests
+        assert not list(tests)
 
     @pytest.mark.parametrize("byte_values, expected", [
         ([DexParser.EncodedValue.VALUE_BYTE, 0x0A], 0xA),
