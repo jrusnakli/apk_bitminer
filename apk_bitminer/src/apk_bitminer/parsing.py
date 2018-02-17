@@ -435,6 +435,16 @@ class DexParser(object):
     #
     ##########################################################
 
+    JUNIT3_DEFAULT_DESCRIPTORS = {"Ljunit/framework/TestCase;", "Landroid/test/ActivityInstrumentationTestCase;",
+                                  "Landroid/test/ActivityInstrumentationTestCase2;", "Landroid/test/ActivityTestCase;",
+                                  "Landroid/test/ActivityUnitTestCase;", "Landroid/test/AndroidTestCase;",
+                                  "Landroid/test/ApplicationTestCase;", "Landroid/test/FailedToCreateTests;",
+                                  "Landroid/test/InstrumentationTestCase;", "Landroid/test/LoaderTestCase;",
+                                  "Landroid/test/ProviderTestCase;", "Landroid/test/ProviderTestCase2;",
+                                  "Landroid/test/ServiceTestCase;", "Landroid/test/SingleLaunchActivityTestCase;",
+                                  "Landroid/test/SyncBaseInstrumentation;",
+                                  }
+
     @staticmethod
     def parse(apk_file_name, package_names=None):
         """
@@ -502,7 +512,7 @@ class DexParser(object):
         """
         return name[1:-1].replace('/', '.')
 
-    def find_junit3_tests(self, descriptors=list(junit3.Junit3Processor.DEFAULT_DESCRIPTORS)):
+    def find_junit3_tests(self, descriptors=list(JUNIT3_DEFAULT_DESCRIPTORS)):
         """
         :param descriptors:  which test classes to look for as proper test case classes
         :return: all test methods per Junit3 conventions
