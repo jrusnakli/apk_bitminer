@@ -29,6 +29,10 @@ class ByteStream(object):
         return self._size
 
     class ContiguousReader(object):
+        """
+        Reader over a contiguous stream of bytes.  Entering this context manager
+        will capture the current offset which will be restored on exit.
+        """
 
         def __init__(self, bytestream, offset=None):
             self._offset_on_exit = bytestream.tell()
@@ -145,6 +149,9 @@ class ByteStream(object):
             """
             return self._file.read(count)
 
+        def skip(self, count):
+            self._bytestream.seek(self._bytestream.tell() + count)
+
     def parse_descriptor(self, string_id):
         """
         :param string_id: string id to look up
@@ -164,6 +171,11 @@ class ByteStream(object):
         return self.parse_descriptor(string_id)
 
     class BaseCollectionReader(object):
+        """
+        This reader holds a starting offset that is used to read into a stream at a given index into
+        a collection of like objects.  This way, each item requested is processed into memory only on
+        an on-demand basis.
+        """
 
         def __init__(self, bytestream, clazz, offset=None, count=None):
             """
@@ -186,6 +198,12 @@ class ByteStream(object):
             self._curr_offset = offset if offset is not None else bytestream.tell()
 
     class IterReader(BaseCollectionReader):
+        """
+        This class is used for reading elements one by one out of the binary stream,
+        intended for use only in a continuous read over a collection
+        If an explicit offset is given, each iteration will return to the starting offset within the stream,
+        but continue where the reader left off for next iteration;  this can be expensive
+        """
 
         def __iter__(self):
             return self

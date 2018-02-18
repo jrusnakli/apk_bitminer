@@ -190,16 +190,16 @@ class DexParser(object):
             with ByteStream.ContiguousReader(bytestream) as reader:
                 self.class_annotations_offset, field_size, annotated_method_size, annotated_parameter_size = \
                     reader.read_ints(4)
-            fmt = "<" + DexParser.Annotation.FORMAT
-            size = struct.calcsize(fmt)
-            self.field_annotations = ByteStream.CollectionReader(bytestream, count=field_size, clazz=DexParser.Annotation)
-            bytestream.seek(bytestream.tell() + field_size * size)
-            self.method_annotations = ByteStream.CollectionReader(bytestream, count=annotated_method_size,
-                                                                  clazz=DexParser.Annotation)
-            bytestream.seek(bytestream.tell() + annotated_method_size * size)
-            self.parameter_annotations = ByteStream.CollectionReader(bytestream, count=annotated_parameter_size,
-                                                                     clazz=DexParser.Annotation)
-            self._parsed_annotations = {}
+                fmt = "<" + DexParser.Annotation.FORMAT
+                size = struct.calcsize(fmt)
+                self.field_annotations = ByteStream.CollectionReader(bytestream, count=field_size, clazz=DexParser.Annotation)
+                reader.skip(field_size * size)
+                self.method_annotations = ByteStream.CollectionReader(bytestream, count=annotated_method_size,
+                                                                      clazz=DexParser.Annotation)
+                reader.skip(annotated_method_size * size)
+                self.parameter_annotations = ByteStream.CollectionReader(bytestream, count=annotated_parameter_size,
+                                                                         clazz=DexParser.Annotation)
+                self._parsed_annotations = {}
 
         def get_methods_with_annotation(self, target_descriptor, method_ids):
             """
@@ -273,19 +273,19 @@ class DexParser(object):
                 direct_methods_size = reader.read_leb128()
                 virtual_methods_size = reader.read_leb128()
 
-            fmt = "<" + DexParser.Annotation.FORMAT
-            size = struct.calcsize(fmt)
-            self.static_fields = ByteStream.IterReader(bytestream, count=static_fields_size,
-                                                       clazz=DexParser.EncodedField)
-            bytestream.seek(bytestream.tell() + size * static_fields_size)
-            self.instance_fields = ByteStream.IterReader(bytestream, count=instance_fields_size,
-                                                        clazz=DexParser.EncodedField)
-            bytestream.seek(bytestream.tell() + size * instance_fields_size)
-            self.direct_methods = ByteStream.IterReader(bytestream, count=direct_methods_size,
-                                                        clazz=DexParser.EncodedMethod)
-            bytestream.seek(bytestream.tell() + size * virtual_methods_size)
-            self.virtual_methods = ByteStream.IterReader(bytestream, count=virtual_methods_size,
-                                                         clazz=DexParser.EncodedMethod)
+                fmt = "<" + DexParser.Annotation.FORMAT
+                size = struct.calcsize(fmt)
+                self.static_fields = ByteStream.IterReader(bytestream, count=static_fields_size,
+                                                           clazz=DexParser.EncodedField)
+                reader.skip(size * static_fields_size)
+                self.instance_fields = ByteStream.IterReader(bytestream, count=instance_fields_size,
+                                                            clazz=DexParser.EncodedField)
+                reader.skip(size * instance_fields_size)
+                self.direct_methods = ByteStream.IterReader(bytestream, count=direct_methods_size,
+                                                            clazz=DexParser.EncodedMethod)
+                reader.skip(size * virtual_methods_size)
+                self.virtual_methods = ByteStream.IterReader(bytestream, count=virtual_methods_size,
+                                                             clazz=DexParser.EncodedMethod)
 
     class EncodedAnnotation(DescribableItem):
         FORMAT = "*i*"
@@ -464,6 +464,7 @@ class DexParser(object):
                         yield test
                     for test in parser.find_junit4_tests():
                         yield test
+                    parser.close()
         finally:
             shutil.rmtree(tempd)
 
@@ -482,6 +483,9 @@ class DexParser(object):
                 DexParser.Item._type_ids = self._ids[clazz]
             elif clazz == DexParser.StringIdItem:
                 DexParser.Item._string_ids = self._ids[clazz]
+
+    def close(self):
+        self._bytestream._file.close()
 
     def find_classes_directly_inherited_from(self, descriptors):
         """
@@ -552,7 +556,7 @@ class AXMLParser(object):
     Class for extracting a human-readable android manifest xml file from an Android apk
 
     Subclasses represent data items that appear within a binary-formatted AndroidManifest.xml file within an apk,
-    and contain the logic to decode a linear bytestrea to product an instance of that items' type.
+    and contain the logic to decode a linear bytestream to product an instance of that items' type.
     """
 
     XML_END_DOC_TAG = 0x00100101
@@ -634,6 +638,7 @@ class AXMLParser(object):
                 else:  # end tag
                     current_tag = current_tag.parent_tag
         self._process_tags()
+        bytestream._file.close()
 
     def parse_items(self, bytestream):
         with ByteStream.ContiguousReader(bytestream) as reader:
@@ -731,14 +736,14 @@ class AXMLParser(object):
                 self._style_raw_data_offset = reader.read_int()
                 self._string_offset = [reader.read_int() for _ in range(self._string_count)]
                 # skip style offset table
-                bytestream.seek(bytestream.tell() + self._style_count * WORD_LENGTH)
+                reader.skip(self._style_count * WORD_LENGTH)
                 # skip string raw data:
                 length = (string_chunk_size if self._style_raw_data_offset == 0 else self._style_raw_data_offset) - self._string_raw_data_offset
                 self._string_raw_data_offset = bytestream.tell()
-                bytestream.seek(bytestream.tell() + length)
+                reader.skip(length)
                 # skip style raw data
                 if self._style_raw_data_offset != 0:
-                    bytestream.seek(bytestream.tell() + (string_chunk_size - self._style_raw_data_offset)*WORD_LENGTH)
+                    reader.skip((string_chunk_size - self._style_raw_data_offset)*WORD_LENGTH)
                 tag = reader.read_int()
                 if tag != AXMLParser.Header.EXPECTED_RESOURCE_TAG:
                     raise Exception("Poorly formatted android XML binary file")
@@ -746,7 +751,7 @@ class AXMLParser(object):
                 if self._resource_chunk_size % 4 != 0:
                     raise Exception("Poorly formatted android XML binary file")
                 self.no_entries = self._resource_chunk_size/4
-                bytestream.seek(bytestream.tell() + self._resource_chunk_size - 8)
+                reader.skip(self._resource_chunk_size - 8)
 
     class StringItem(object):
 
