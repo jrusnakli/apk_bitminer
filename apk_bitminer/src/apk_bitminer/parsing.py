@@ -5,7 +5,6 @@ import sys
 import tempfile
 import zipfile
 from abc import ABCMeta, abstractmethod
-from . import junit3
 from . import ByteStream
 
 
@@ -21,7 +20,9 @@ class DexParser(object):
     """
 
     class FormatException(Exception):
-        pass
+        """
+        Thrown on unexpected format of data
+        """
 
     class DexMagic(object):
         """
@@ -127,7 +128,9 @@ class DexParser(object):
 
         @abstractmethod
         def _type_index(self):
-            pass
+            """
+            :return: return type index attribute
+            """
 
         @property
         def descriptor(self):
@@ -171,6 +174,9 @@ class DexParser(object):
             return self
 
         def next(self):
+            return self.__next__()
+
+        def __next__(self):
             return next(self.entries)
 
     class AnnotationElement(Item):
