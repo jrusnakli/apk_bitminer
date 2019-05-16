@@ -20,7 +20,9 @@ class DexParser(object):
     """
 
     class FormatException(Exception):
-        pass
+        """
+        Thrown on unexpected format of data
+        """
 
     class DexMagic(object):
         """
@@ -126,7 +128,9 @@ class DexParser(object):
 
         @abstractmethod
         def _type_index(self):
-            pass
+            """
+            :return: return type index attribute
+            """
 
         @property
         def descriptor(self):
