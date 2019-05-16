@@ -3,12 +3,12 @@ jobs:
   build:
     # directory where steps are run
     working_directory: ~/apk_bitminer
-    docker: # run the steps with Docker
+    docker:
       # CircleCI Python images available at: https://hub.docker.com/r/circleci/python/
       - image: circleci/python:3.6.4
         environment:
           PYTHONASYNCIODEBUG: 1
-    steps: # steps that comprise the `build` job
+    steps:
       - checkout
       - restore_cache:
           key: deps1-{{ .Branch }}-{{ checksum "requirements.txt" }}
@@ -23,7 +23,7 @@ jobs:
           paths:
             - "venv"
       - run:
-          name: Running tests
+          name: Run tests
           command: |
             . venv/bin/activate
             cd apk_bitminer/test
