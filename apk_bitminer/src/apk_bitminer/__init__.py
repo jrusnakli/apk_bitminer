@@ -209,6 +209,9 @@ class ByteStream(object):
             return self
 
         def next(self):
+            return self.__next__()
+
+        def __next__(self):
             if self._count is not None and self._index >= self._count:
                 raise StopIteration()
             start_offset = self._bytestream.tell()

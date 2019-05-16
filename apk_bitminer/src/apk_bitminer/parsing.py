@@ -170,6 +170,9 @@ class DexParser(object):
             return self
 
         def next(self):
+            return self.__next__()
+
+        def __next__(self):
             return next(self.entries)
 
     class AnnotationElement(Item):
