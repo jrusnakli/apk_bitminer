@@ -1,5 +1,5 @@
 pytest
 pytest-cov
 pytest-html
-pytest-xdist
+pytest_mproc
 

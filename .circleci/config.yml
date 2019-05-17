@@ -28,7 +28,7 @@ jobs:
           command: |
             . venv/bin/activate
             cd apk_bitminer/test
-            pytest . --cov=../src --cov-report html:test-reports/coverage --html test-reports/resport.html
+            pytest . --cov=../src --cov-report html:test-reports/coverage --html test-reports/resport.html --cores auto
       - store_artifacts:
           path: apk_bitminer/test/test-reports/
           destination: python_app
