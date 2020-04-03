@@ -1,11 +1,13 @@
+import fnmatch
 import os
+import re
 import shutil
 import struct
 import sys
 import tempfile
 import zipfile
 from abc import ABCMeta, abstractmethod
-from . import junit3
+
 from . import ByteStream
 
 
@@ -169,6 +171,10 @@ class DexParser(object):
 
         def __iter__(self):
             return self
+
+        # Python3:
+        def __next__(self):
+            return self.next()
 
         def next(self):
             return next(self.entries)
@@ -472,7 +478,23 @@ class DexParser(object):
         self._bytestream = ByteStream(file_name)
         self._headers = DexParser.Header(self._bytestream)
         self._headers.validate()
-        self._package_filters = package_names or []
+
+        def get_filter(filter_string):
+            """
+            :param filter_string: string used to filter package names
+            :return: lambda function taking a name and returning whether there is a match with filter string
+            """
+            if filter_string.startswith('re::'):
+                regex = re.compile(filter_string[4:])
+                return lambda n: bool(re.match(regex, n))
+            elif any([c in filter_string for c in ['*', '[', '?']]):
+                # wildcard syntax filter:
+                return lambda n: bool(fnmatch.fnmatch(n, filter_string))
+            else:
+                return lambda n: bool(n.startswith(filter_string))
+
+        # compile any regex patterns ahead of time and only once here
+        self._package_filters = [get_filter(filter_name) for filter_name in package_names or []]
         self._ids = {}
         for clazz in [DexParser.StringIdItem, DexParser.TypeIdItem, DexParser.ProtoIdItem,
                       DexParser.FieldIdItem, DexParser.MethodIdItem, DexParser.ClassDefItem]:
@@ -512,7 +534,7 @@ class DexParser(object):
     @staticmethod
     def _descriptor2name(name):
         """
-        :return: the name reformatted into the format expected for parameter-passing to an adb am isntrument command
+        :return: the name reformatted into the format expected for parameter-passing to an adb am instrument command
         """
         return name[1:-1].replace('/', '.')
 
@@ -523,12 +545,10 @@ class DexParser(object):
         """
         for class_def in self.find_classes_directly_inherited_from(descriptors):
             dot_sep_name = self._descriptor2name(class_def.descriptor)
-            if self._package_filters and all([dot_sep_name not in f for f in self._package_filters]):
-                continue
-
-            for method in self.find_method_names(class_def):
-                if method.startswith("test"):
-                    yield method
+            if not self._package_filters or any([f(dot_sep_name) for f in self._package_filters]):
+                for method in self.find_method_names(class_def):
+                    if method.startswith("test"):
+                        yield method
 
     def find_junit4_tests(self):
         """
@@ -538,17 +558,16 @@ class DexParser(object):
         ignored_annotation_descriptor = "Lorg/junit/Ignore;"
         for class_def in [c for c in self._ids[DexParser.ClassDefItem] if c.annotations_offset != 0]:
                 dot_sep_name = self._descriptor2name(class_def.descriptor)
-                if self._package_filters and all([f not in dot_sep_name for f in self._package_filters]):
-                    continue
-                with ByteStream.ContiguousReader(self._bytestream, offset=class_def.annotations_offset):
-                    directory = DexParser.AnnotationsDirectoryItem(self._bytestream)
-                ignored_names = [n for n in directory.get_methods_with_annotation(ignored_annotation_descriptor,
-                                                                                  self._ids[DexParser.MethodIdItem])]
+                if not self._package_filters or any([f(dot_sep_name) for f in self._package_filters]):
+                    with ByteStream.ContiguousReader(self._bytestream, offset=class_def.annotations_offset):
+                        directory = DexParser.AnnotationsDirectoryItem(self._bytestream)
+                    ignored_names = [n for n in directory.get_methods_with_annotation(ignored_annotation_descriptor,
+                                                                                      self._ids[DexParser.MethodIdItem])]
 
-                for name in directory.get_methods_with_annotation(test_annotation_descriptor,
-                                                                  self._ids[DexParser.MethodIdItem]):
-                    if name not in ignored_names:
-                        yield dot_sep_name + "#" + name
+                    for name in directory.get_methods_with_annotation(test_annotation_descriptor,
+                                                                      self._ids[DexParser.MethodIdItem]):
+                        if name not in ignored_names:
+                            yield dot_sep_name + "#" + name
 
 
 class AXMLParser(object):
@@ -682,8 +701,8 @@ class AXMLParser(object):
                 elif child.name == "uses-sdk":
                     target_sdk_version = attrs_dict.get("targetSdkVersion")
                     min_sdk_version = attrs_dict.get("minSdkVersion")
-                    target_sdk_version = int(target_sdk_version.split(' ')[1], 16)
-                    min_sdk_version = int(min_sdk_version.split(' ')[1], 16)
+                    target_sdk_version = int(target_sdk_version.split(' ')[1], 16) if target_sdk_version else None
+                    min_sdk_version = int(min_sdk_version.split(' ')[1], 16) if min_sdk_version else None
                     self._uses_sdk = AXMLParser.UsesSdk(target_sdk_version=target_sdk_version,
                                                         min_sdk_version=min_sdk_version)
                 elif child.name == "uses-permission":
